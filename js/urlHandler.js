@@ -32,9 +32,8 @@ const URLHandler = (() => {
     if (!encoded) return null;
 
     try {
-      // Decompress and decode
-      const compressed = atob(encoded);
-      const decompressed = pako.inflate(compressed, { to: 'string' });
+      // LZ-String decompression (URL-safe)
+      const decompressed = LZString.decompressFromEncodedURIComponent(encoded);
       return decompressed;
     } catch (error) {
       console.error('Failed to decode patch from URL:', error);
@@ -50,9 +49,9 @@ const URLHandler = (() => {
    */
   function generateShareURL(patchData, options = {}) {
     try {
-      // Compress and encode
-      const compressed = pako.deflate(patchData, { to: 'string' });
-      const encoded = btoa(compressed);
+      // LZ-String compression (URL-safe, optimized for text)
+      // This provides better compression than pako for text data
+      const encoded = LZString.compressToEncodedURIComponent(patchData);
 
       // Build URL using browser's native URL API (platform-agnostic)
       const shareUrl = new URL(window.location.href);
@@ -60,7 +59,7 @@ const URLHandler = (() => {
       // Clear existing query params
       shareUrl.search = '';
       
-      // Add patch parameter
+      // Add patch parameter (already URL-encoded by LZString)
       shareUrl.searchParams.set('patch', encoded);
 
       // Optionally include theme

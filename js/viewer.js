@@ -767,7 +767,14 @@ const Viewer = (() => {
       // Check URL safety
       const safety = URLHandler.checkURLSafety(shareURL);
       if (urlInfo) {
-        urlInfo.textContent = safety.message;
+        let message = safety.message;
+        
+        // If URL is too large, suggest localStorage alternative
+        if (safety.isError) {
+          message += ' Consider saving this patch locally instead using the Save button (💾), or split it into smaller patches.';
+        }
+        
+        urlInfo.textContent = message;
         urlInfo.className = 'url-info';
         if (safety.isWarning) urlInfo.classList.add('warning');
         if (safety.isError) urlInfo.classList.add('error');
