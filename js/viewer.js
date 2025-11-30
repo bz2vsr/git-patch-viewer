@@ -637,12 +637,21 @@ const Viewer = (() => {
 
     const recent = StorageManager.getRecentPatches(6);
     
+    // Always show the recent patches section
+    recentSection?.classList.remove('hidden');
+
     if (recent.length === 0) {
-      recentSection?.classList.add('hidden');
+      recentList.innerHTML = `
+        <div style="text-align: center; padding: 2rem 1rem; color: var(--text-tertiary);">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto 1rem; opacity: 0.5;">
+            <path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <p style="font-size: 0.875rem;">No saved patches yet</p>
+          <p style="font-size: 0.8125rem; margin-top: 0.5rem;">Load and save a patch to see it here</p>
+        </div>
+      `;
       return;
     }
-
-    recentSection?.classList.remove('hidden');
 
     let html = '';
     recent.forEach(patch => {
