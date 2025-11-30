@@ -432,25 +432,21 @@ const Viewer = (() => {
   }
 
   function renderStatistics(stats) {
-    const dashboard = document.getElementById('stats-dashboard');
-    if (!dashboard) return;
+    // Update header stats badges
+    const headerStats = document.getElementById('header-stats');
+    const filesValue = document.getElementById('stat-files-value');
+    const additionsValue = document.getElementById('stat-additions-value');
+    const deletionsValue = document.getElementById('stat-deletions-value');
+    
+    if (!headerStats || !filesValue || !additionsValue || !deletionsValue) return;
 
-    dashboard.classList.remove('hidden');
-
-    dashboard.innerHTML = `
-      <div class="stat-card">
-        <div class="stat-value">${stats.filesChanged}</div>
-        <div class="stat-label">Files Changed</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value stat-additions">+${stats.additions}</div>
-        <div class="stat-label">Additions</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value stat-deletions">-${stats.deletions}</div>
-        <div class="stat-label">Deletions</div>
-      </div>
-    `;
+    // Show header stats
+    headerStats.classList.remove('hidden');
+    
+    // Update values
+    filesValue.textContent = stats.filesChanged;
+    additionsValue.textContent = stats.additions;
+    deletionsValue.textContent = stats.deletions;
   }
 
   function renderDiff(patchText) {
@@ -595,6 +591,7 @@ const Viewer = (() => {
     document.getElementById('viewer-section')?.classList.add('hidden');
     document.getElementById('new-patch-btn')?.classList.add('hidden');
     document.getElementById('share-btn')?.classList.add('hidden');
+    document.getElementById('header-stats')?.classList.add('hidden');
     URLHandler.clearURL();
     currentPatch = null;
   }

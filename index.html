@@ -47,6 +47,24 @@
         </svg>
         New Patch
       </button>
+      <!-- Patch Statistics (shown when viewing patch) -->
+      <div id="header-stats" class="header-stats hidden">
+        <div class="stat-badge stat-files" title="Files changed">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+          <span id="stat-files-value">0</span>
+        </div>
+        <div class="stat-badge stat-additions" title="Lines added">
+          <span class="stat-symbol">+</span>
+          <span id="stat-additions-value">0</span>
+        </div>
+        <div class="stat-badge stat-deletions" title="Lines deleted">
+          <span class="stat-symbol">−</span>
+          <span id="stat-deletions-value">0</span>
+        </div>
+      </div>
     </div>
     <div class="header-right">
       <!-- Theme Selector -->
@@ -137,11 +155,6 @@
     <section id="viewer-section" class="viewer-section hidden">
       <!-- Git Metadata Card -->
       <div id="metadata-card" class="metadata-card hidden">
-        <!-- Populated by JS -->
-      </div>
-      
-      <!-- Statistics Dashboard -->
-      <div id="stats-dashboard" class="stats-dashboard hidden">
         <!-- Populated by JS -->
       </div>
       
