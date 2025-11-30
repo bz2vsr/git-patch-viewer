@@ -193,32 +193,32 @@
             <!-- Populated by diff2html -->
           </div>
         </div>
-        
-        <!-- Saved Patches Sidebar (slide-in) -->
-        <aside id="saved-sidebar" class="saved-sidebar hidden">
-          <div class="saved-header">
-            <h3>Saved Patches</h3>
-            <button id="close-saved-btn" class="btn-icon" aria-label="Close saved patches panel">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          </div>
-          <div class="saved-controls">
-            <input type="text" id="saved-search" placeholder="Search saved patches..." autocomplete="off">
-            <select id="saved-sort" class="sort-select">
-              <option value="date">Sort by Date</option>
-              <option value="name">Sort by Name</option>
-              <option value="size">Sort by Size</option>
-            </select>
-          </div>
-          <div id="saved-list" class="saved-list">
-            <!-- Populated by JS -->
-          </div>
-        </aside>
       </div>
     </section>
+    
+    <!-- Saved Patches Sidebar (slide-in) - Accessible from anywhere -->
+    <aside id="saved-sidebar" class="saved-sidebar hidden">
+      <div class="saved-header">
+        <h3>Saved Patches</h3>
+        <button id="close-saved-btn" class="btn-icon" aria-label="Close saved patches panel">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="saved-controls">
+        <input type="text" id="saved-search" placeholder="Search saved patches..." autocomplete="off">
+        <select id="saved-sort" class="sort-select">
+          <option value="date">Sort by Date</option>
+          <option value="name">Sort by Name</option>
+          <option value="size">Sort by Size</option>
+        </select>
+      </div>
+      <div id="saved-list" class="saved-list">
+        <!-- Populated by JS -->
+      </div>
+    </aside>
   </main>
 
   <!-- Share Modal -->
@@ -237,8 +237,11 @@
       <div class="modal-body">
         <div class="share-url-container">
           <label for="share-url-input">Shareable Link:</label>
+          <input type="text" id="share-url-input" readonly>
+          <div id="url-length-info" class="url-info">
+            <!-- Populated by JS -->
+          </div>
           <div class="url-input-group">
-            <input type="text" id="share-url-input" readonly>
             <button id="copy-share-url-btn" class="btn-primary">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -246,9 +249,12 @@
               </svg>
               Copy
             </button>
-          </div>
-          <div id="url-length-info" class="url-info">
-            <!-- Populated by JS -->
+            <button id="save-share-patch-btn" class="btn-secondary hidden">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+              </svg>
+              Save
+            </button>
           </div>
         </div>
         <div class="share-options">

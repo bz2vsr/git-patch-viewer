@@ -182,7 +182,7 @@ const URLHandler = (() => {
     if (length > 8000) {
       result.isOK = false;
       result.isError = true;
-      result.message = 'URL is too long (>8KB). Most browsers will reject it. Consider saving to localStorage instead.';
+      result.message = 'URL is over 8KB. Most browsers will reject this. Consider saving to localStorage instead.';
     } else if (length > 2000) {
       result.isWarning = true;
       result.message = 'URL is quite long (>2KB). Some older browsers or proxies might have issues.';

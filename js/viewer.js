@@ -149,6 +149,9 @@ const Viewer = (() => {
 
     // Share modal - copy button
     document.getElementById('copy-share-url-btn')?.addEventListener('click', handleCopyShareURL);
+    
+    // Share modal - save button
+    document.getElementById('save-share-patch-btn')?.addEventListener('click', handleSaveFromShareModal);
 
     // Help modal trigger
     document.addEventListener('keydown', (e) => {
@@ -767,17 +770,20 @@ const Viewer = (() => {
       // Check URL safety
       const safety = URLHandler.checkURLSafety(shareURL);
       if (urlInfo) {
-        let message = safety.message;
-        
-        // If URL is too large, suggest localStorage alternative
-        if (safety.isError) {
-          message += ' Consider saving this patch locally instead using the Save button (💾), or split it into smaller patches.';
-        }
-        
-        urlInfo.textContent = message;
+        urlInfo.textContent = safety.message;
         urlInfo.className = 'url-info';
         if (safety.isWarning) urlInfo.classList.add('warning');
         if (safety.isError) urlInfo.classList.add('error');
+      }
+      
+      // Show/hide save button based on URL size
+      const saveBtn = document.getElementById('save-share-patch-btn');
+      if (saveBtn) {
+        if (safety.isError || safety.isWarning) {
+          saveBtn.classList.remove('hidden');
+        } else {
+          saveBtn.classList.add('hidden');
+        }
       }
 
       modal.classList.remove('hidden');
@@ -796,6 +802,26 @@ const Viewer = (() => {
       showToast('Link copied to clipboard', 'success');
     } else {
       showToast('Failed to copy link', 'error');
+    }
+  }
+
+  function handleSaveFromShareModal() {
+    if (!currentPatch) return;
+    
+    try {
+      const saved = StorageManager.savePatch(currentPatch);
+      if (saved) {
+        showToast('Patch saved to localStorage', 'success');
+        updateSavedPatchesCount();
+        
+        // Close the share modal
+        const modal = document.getElementById('share-modal');
+        if (modal) {
+          modal.classList.add('hidden');
+        }
+      }
+    } catch (error) {
+      showToast('Failed to save patch: ' + error.message, 'error');
     }
   }
 
