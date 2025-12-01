@@ -173,7 +173,38 @@
         <!-- File Sidebar -->
         <aside id="file-sidebar" class="file-sidebar" role="navigation" aria-label="File navigation">
           <div class="sidebar-header">
-            <h3>Files Changed</h3>
+            <div class="sidebar-header-top">
+              <h3>Files Changed</h3>
+              <div class="sidebar-header-actions">
+                <button id="sidebar-collapse-btn" class="btn-icon sidebar-collapse-btn" title="Collapse sidebar" aria-label="Collapse sidebar">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                  </svg>
+                </button>
+                <button id="files-settings-btn" class="btn-icon files-settings-btn" title="View settings" aria-label="File view settings">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M12 1v6m0 6v6m8.66-15.66l-4.24 4.24m-4.24 4.24l-4.24 4.24M23 12h-6m-6 0H1m20.66 8.66l-4.24-4.24m-4.24-4.24l-4.24-4.24"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="sidebar-search">
+              <input type="text" id="files-search" placeholder="Search files..." autocomplete="off" aria-label="Search files">
+              <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+              </svg>
+            </div>
+            <!-- Settings Dropdown -->
+            <div id="files-settings-dropdown" class="files-settings-dropdown hidden">
+              <div class="settings-option">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="tree-view-toggle">
+                  <span>Show folder structure</span>
+                </label>
+              </div>
+            </div>
           </div>
           <div class="sidebar-content" role="tree">
             <!-- Populated by JS -->

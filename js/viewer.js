@@ -8,6 +8,10 @@ const Viewer = (() => {
   let currentPatch = null;
   let currentView = 'side-by-side'; // 'unified' or 'side-by-side'
   let currentSavedPatchId = null; // Track if current patch is saved
+  let filesViewMode = 'flat'; // 'flat' or 'tree'
+  let folderStates = {}; // Track expanded/collapsed folders
+  let filesSearchQuery = ''; // Current search query
+  let sidebarCollapsed = false; // Track sidebar collapsed state
 
   /**
    * Initialize the viewer
@@ -19,6 +23,23 @@ const Viewer = (() => {
     const savedView = localStorage.getItem('git-patch-viewer-view');
     if (savedView) {
       currentView = savedView;
+    }
+
+    // Load saved files view mode
+    const savedFilesView = localStorage.getItem('git-patch-viewer-files-view-mode');
+    if (savedFilesView) {
+      filesViewMode = savedFilesView;
+      const treeViewToggle = document.getElementById('tree-view-toggle');
+      if (treeViewToggle) {
+        treeViewToggle.checked = (filesViewMode === 'tree');
+      }
+    }
+
+    // Load saved sidebar collapsed state
+    const savedSidebarState = localStorage.getItem('git-patch-viewer-sidebar-collapsed');
+    if (savedSidebarState === 'true') {
+      sidebarCollapsed = true;
+      applySidebarCollapsedState();
     }
 
     // Set up event listeners
@@ -134,6 +155,28 @@ const Viewer = (() => {
     
     // Share button
     document.getElementById('share-btn')?.addEventListener('click', openShareModal);
+
+    // Files settings button
+    document.getElementById('files-settings-btn')?.addEventListener('click', toggleFilesSettings);
+
+    // Tree view toggle
+    document.getElementById('tree-view-toggle')?.addEventListener('change', handleTreeViewToggle);
+
+    // Files search
+    document.getElementById('files-search')?.addEventListener('input', handleFilesSearch);
+
+    // Sidebar collapse button
+    document.getElementById('sidebar-collapse-btn')?.addEventListener('click', toggleSidebarCollapse);
+
+    // Sidebar hover for temporary expansion
+    const sidebar = document.getElementById('file-sidebar');
+    if (sidebar) {
+      sidebar.addEventListener('mouseenter', handleSidebarMouseEnter);
+      sidebar.addEventListener('mouseleave', handleSidebarMouseLeave);
+    }
+
+    // Close settings dropdown when clicking outside
+    document.addEventListener('click', handleClickOutsideFilesSettings);
   }
 
   /**
@@ -525,6 +568,14 @@ const Viewer = (() => {
   }
 
   function renderFileTree(files) {
+    if (filesViewMode === 'tree') {
+      renderFileTreeStructured(files);
+    } else {
+      renderFileTreeFlat(files);
+    }
+  }
+
+  function renderFileTreeFlat(files) {
     const sidebar = document.querySelector('.sidebar-content');
     if (!sidebar) return;
 
@@ -564,6 +615,199 @@ const Viewer = (() => {
         navigateToFile(filePath);
       });
     });
+  }
+
+  function renderFileTreeStructured(files) {
+    const sidebar = document.querySelector('.sidebar-content');
+    if (!sidebar) return;
+
+    // Build folder structure
+    const tree = buildFolderTree(files);
+    
+    // Render the tree
+    const html = renderTreeNode(tree, 0, '');
+    sidebar.innerHTML = html;
+
+    // Add click handlers for folders
+    sidebar.querySelectorAll('.file-tree-folder').forEach(folder => {
+      folder.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleFolder(folder);
+      });
+    });
+
+    // Add click handlers for files
+    sidebar.querySelectorAll('.file-tree-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const filePath = item.dataset.file;
+        navigateToFile(filePath);
+      });
+    });
+  }
+
+  function buildFolderTree(files) {
+    const tree = {
+      name: '',
+      type: 'folder',
+      children: {},
+      files: []
+    };
+
+    files.forEach((file, index) => {
+      const path = file.newPath !== '/dev/null' ? file.newPath : file.oldPath;
+      const parts = path.split('/');
+      
+      let currentNode = tree;
+      
+      // Build folder structure
+      for (let i = 0; i < parts.length - 1; i++) {
+        const folderName = parts[i];
+        if (!currentNode.children[folderName]) {
+          currentNode.children[folderName] = {
+            name: folderName,
+            type: 'folder',
+            path: parts.slice(0, i + 1).join('/'),
+            children: {},
+            files: []
+          };
+        }
+        currentNode = currentNode.children[folderName];
+      }
+      
+      // Add file to current folder
+      currentNode.files.push({
+        ...file,
+        path: path,
+        filename: parts[parts.length - 1],
+        index: index
+      });
+    });
+
+    return tree;
+  }
+
+  function renderTreeNode(node, depth, parentPath) {
+    let html = '';
+    
+    // Render folders first
+    const folderNames = Object.keys(node.children).sort();
+    folderNames.forEach(folderName => {
+      const folder = node.children[folderName];
+      const folderPath = folder.path;
+      const isExpanded = folderStates[folderPath] !== false; // Default to expanded
+      
+      html += `
+        <div class="file-tree-folder ${isExpanded ? 'expanded' : 'collapsed'}" 
+             data-folder="${escapeHtml(folderPath)}" 
+             data-depth="${depth}"
+             style="--depth: ${depth}">
+          <svg class="expand-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+          <svg class="folder-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span class="folder-name">${escapeHtml(folderName)}</span>
+        </div>
+      `;
+      
+      // Render children (recursively)
+      if (isExpanded) {
+        html += renderTreeNode(folder, depth + 1, folderPath);
+      }
+    });
+    
+    // Render files
+    node.files.sort((a, b) => a.filename.localeCompare(b.filename)).forEach(file => {
+      const fileId = `file-${file.index}`;
+      let iconType = file.type;
+      
+      html += `
+        <div class="file-tree-item" 
+             data-file="${escapeHtml(file.path)}" 
+             data-file-id="${fileId}"
+             data-depth="${depth}"
+             data-parent="${escapeHtml(parentPath)}"
+             style="--depth: ${depth}">
+          <svg class="file-icon ${iconType}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            ${getFileIcon(iconType)}
+          </svg>
+          <span class="file-name" title="${escapeHtml(file.path)}">${escapeHtml(file.filename)}</span>
+          <span class="file-stats">
+            ${file.additions > 0 ? `<span class="additions">+${file.additions}</span>` : ''}
+            ${file.deletions > 0 ? `<span class="deletions">-${file.deletions}</span>` : ''}
+          </span>
+        </div>
+      `;
+    });
+    
+    return html;
+  }
+
+  function toggleFolder(folderElement) {
+    const folderPath = folderElement.dataset.folder;
+    const isExpanded = folderElement.classList.contains('expanded');
+    
+    if (isExpanded) {
+      folderElement.classList.remove('expanded');
+      folderElement.classList.add('collapsed');
+      folderStates[folderPath] = false;
+      
+      // Hide children
+      hideChildrenOfFolder(folderElement, folderPath);
+    } else {
+      folderElement.classList.remove('collapsed');
+      folderElement.classList.add('expanded');
+      folderStates[folderPath] = true;
+      
+      // Show immediate children
+      showChildrenOfFolder(folderElement, folderPath);
+    }
+  }
+
+  function hideChildrenOfFolder(folderElement, folderPath) {
+    let nextElement = folderElement.nextElementSibling;
+    while (nextElement) {
+      const isChild = nextElement.dataset.folder?.startsWith(folderPath + '/') || 
+                     nextElement.dataset.file?.startsWith(folderPath + '/');
+      
+      if (!isChild) break;
+      
+      nextElement.style.display = 'none';
+      nextElement = nextElement.nextElementSibling;
+    }
+  }
+
+  function showChildrenOfFolder(folderElement, folderPath) {
+    let nextElement = folderElement.nextElementSibling;
+    const depth = parseInt(folderElement.dataset.depth || '0');
+    
+    while (nextElement) {
+      const nextDepth = parseInt(nextElement.dataset.depth || '0');
+      
+      // Stop if we've gone past the children
+      if (nextDepth <= depth) break;
+      
+      // Only show immediate children (depth + 1)
+      if (nextDepth === depth + 1) {
+        nextElement.style.display = '';
+        
+        // If it's a folder and it's collapsed, skip its children
+        if (nextElement.classList.contains('file-tree-folder') && 
+            nextElement.classList.contains('collapsed')) {
+          const subFolderPath = nextElement.dataset.folder;
+          // Skip all children of this collapsed folder
+          let skipElement = nextElement.nextElementSibling;
+          while (skipElement && (skipElement.dataset.folder?.startsWith(subFolderPath + '/') || 
+                                 skipElement.dataset.file?.startsWith(subFolderPath + '/'))) {
+            nextElement = skipElement;
+            skipElement = skipElement.nextElementSibling;
+          }
+        }
+      }
+      
+      nextElement = nextElement.nextElementSibling;
+    }
   }
 
   function getFileIcon(type) {
@@ -1081,6 +1325,125 @@ const Viewer = (() => {
   function reRenderDiff() {
     if (currentPatch) {
       renderDiff(currentPatch.raw);
+    }
+  }
+
+  // ============================================
+  // Files Settings and Search
+  // ============================================
+
+  function toggleFilesSettings(e) {
+    if (e) e.stopPropagation();
+    const dropdown = document.getElementById('files-settings-dropdown');
+    if (!dropdown) return;
+
+    dropdown.classList.toggle('hidden');
+  }
+
+  function handleClickOutsideFilesSettings(e) {
+    const dropdown = document.getElementById('files-settings-dropdown');
+    const settingsBtn = document.getElementById('files-settings-btn');
+    
+    if (!dropdown || dropdown.classList.contains('hidden')) {
+      return;
+    }
+    
+    if (!dropdown.contains(e.target) && !settingsBtn?.contains(e.target)) {
+      dropdown.classList.add('hidden');
+    }
+  }
+
+  function handleTreeViewToggle(e) {
+    filesViewMode = e.target.checked ? 'tree' : 'flat';
+    localStorage.setItem('git-patch-viewer-files-view-mode', filesViewMode);
+    
+    // Re-render the file tree
+    if (currentPatch) {
+      renderFileTree(currentPatch.files);
+    }
+  }
+
+  function handleFilesSearch(e) {
+    filesSearchQuery = e.target.value.toLowerCase().trim();
+    filterFiles();
+  }
+
+  function filterFiles() {
+    const items = document.querySelectorAll('.file-tree-item, .file-tree-folder');
+    
+    if (!filesSearchQuery) {
+      // Show all items
+      items.forEach(item => {
+        item.style.display = '';
+        item.classList.remove('search-match');
+      });
+      return;
+    }
+
+    items.forEach(item => {
+      const fileName = item.dataset.file || item.dataset.folder || '';
+      const matches = fileName.toLowerCase().includes(filesSearchQuery);
+      
+      if (filesViewMode === 'tree') {
+        // In tree view, show parent folders if children match
+        if (item.classList.contains('file-tree-folder')) {
+          // Check if any child matches
+          const hasMatchingChild = Array.from(items).some(child => {
+            const childPath = child.dataset.file || child.dataset.folder || '';
+            return childPath.startsWith(fileName + '/') && 
+                   childPath.toLowerCase().includes(filesSearchQuery);
+          });
+          item.style.display = (matches || hasMatchingChild) ? '' : 'none';
+        } else {
+          item.style.display = matches ? '' : 'none';
+        }
+      } else {
+        // Flat view: simple show/hide
+        item.style.display = matches ? '' : 'none';
+      }
+
+      if (matches) {
+        item.classList.add('search-match');
+      } else {
+        item.classList.remove('search-match');
+      }
+    });
+  }
+
+  // ============================================
+  // Sidebar Collapse
+  // ============================================
+
+  function toggleSidebarCollapse() {
+    sidebarCollapsed = !sidebarCollapsed;
+    localStorage.setItem('git-patch-viewer-sidebar-collapsed', sidebarCollapsed);
+    applySidebarCollapsedState();
+  }
+
+  function applySidebarCollapsedState() {
+    const sidebar = document.getElementById('file-sidebar');
+    if (!sidebar) return;
+
+    if (sidebarCollapsed) {
+      sidebar.classList.add('collapsed');
+    } else {
+      sidebar.classList.remove('collapsed');
+    }
+  }
+
+  function handleSidebarMouseEnter() {
+    if (sidebarCollapsed) {
+      const sidebar = document.getElementById('file-sidebar');
+      if (sidebar) {
+        sidebar.classList.add('hovered');
+      }
+    }
+  }
+
+  function handleSidebarMouseLeave() {
+    const sidebar = document.getElementById('file-sidebar');
+    if (sidebar) {
+      sidebar.classList.remove('hovered');
     }
   }
 
