@@ -898,6 +898,7 @@ const Viewer = (() => {
     document.getElementById('new-patch-btn')?.classList.add('hidden');
     document.getElementById('save-patch-btn')?.classList.add('hidden');
     document.getElementById('share-btn')?.classList.add('hidden');
+    document.body?.classList.remove('viewer-mode');
     document.getElementById('header-stats')?.classList.add('hidden');
     URLHandler.clearURL();
     currentPatch = null;
@@ -910,6 +911,7 @@ const Viewer = (() => {
     document.getElementById('new-patch-btn')?.classList.remove('hidden');
     document.getElementById('save-patch-btn')?.classList.remove('hidden');
     document.getElementById('share-btn')?.classList.remove('hidden');
+    document.body?.classList.add('viewer-mode');
   }
 
   function setView(view) {
