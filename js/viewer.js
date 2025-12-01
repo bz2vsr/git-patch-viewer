@@ -350,7 +350,7 @@ const Viewer = (() => {
     reader.readAsText(file);
   }
 
-  function loadPatchFromText(patchText) {
+  function loadPatchFromText(patchText, skipDuplicateCheck = false) {
     showLoading();
 
     try {
@@ -361,6 +361,19 @@ const Viewer = (() => {
 
       // Parse patch
       const parsedPatch = PatchParser.parse(patchText);
+
+      // Check if this patch already exists in saved patches (if not already loaded from saved patches)
+      if (!currentSavedPatchId && !skipDuplicateCheck) {
+        const existingPatch = StorageManager.findPatchByContent(parsedPatch.raw);
+        if (existingPatch) {
+          // Patch already exists - show options WITHOUT rendering yet
+          hideLoading();
+          showPatchAlreadySavedPrompt(existingPatch, parsedPatch);
+          return;
+        }
+      }
+
+      // Continue with normal rendering
       currentPatch = parsedPatch;
 
       // Show viewer section
@@ -384,16 +397,9 @@ const Viewer = (() => {
       hideLoading();
       showToast('Patch loaded successfully', 'success');
       
-      // Check if this patch already exists in saved patches (if not already loaded from saved patches)
+      // Prompt to save if this is a new patch
       if (!currentSavedPatchId) {
-        const existingPatch = StorageManager.findPatchByContent(currentPatch.raw);
-        if (existingPatch) {
-          // Patch already exists - show options
-          showPatchAlreadySavedPrompt(existingPatch);
-        } else {
-          // New patch - prompt to save
-          promptToSavePatch();
-        }
+        promptToSavePatch();
       }
       
       // Update save button state
@@ -1106,7 +1112,7 @@ const Viewer = (() => {
     }
   }
 
-  function showPatchAlreadySavedPrompt(existingPatch) {
+  function showPatchAlreadySavedPrompt(existingPatch, parsedPatch) {
     const modal = document.getElementById('patch-exists-modal');
     if (!modal) return;
 
@@ -1116,33 +1122,37 @@ const Viewer = (() => {
     // Set up event listeners (remove any existing ones first)
     const loadBtn = document.getElementById('load-existing-patch-btn');
     const saveNewBtn = document.getElementById('save-new-copy-btn');
-    const backdrop = modal.querySelector('.modal-backdrop');
+    const closeBtn = document.getElementById('patch-exists-close-btn');
 
     // Clone and replace to remove old event listeners
     const newLoadBtn = loadBtn.cloneNode(true);
     const newSaveNewBtn = saveNewBtn.cloneNode(true);
+    const newCloseBtn = closeBtn.cloneNode(true);
     loadBtn.parentNode.replaceChild(newLoadBtn, loadBtn);
     saveNewBtn.parentNode.replaceChild(newSaveNewBtn, saveNewBtn);
+    closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
 
     // Load saved patch
     newLoadBtn.addEventListener('click', () => {
-      currentSavedPatchId = existingPatch.id;
-      updateSaveButtonState();
-      URLHandler.updateURL({ savedPatchId: existingPatch.id });
       modal.classList.add('hidden');
-      showToast('Loaded saved patch', 'success');
+      // Load the actual saved patch
+      loadSavedPatch(existingPatch.id);
     });
 
     // Save new copy
     newSaveNewBtn.addEventListener('click', () => {
-      savePatchToStorage();
       modal.classList.add('hidden');
+      // Continue loading the patch as new (skip duplicate check)
+      loadPatchFromText(parsedPatch.raw, true);
     });
 
-    // Close on backdrop click
-    backdrop.addEventListener('click', () => {
+    // Close and return to home screen
+    newCloseBtn.addEventListener('click', () => {
       modal.classList.add('hidden');
+      showInputSection();
     });
+
+    // NOTE: Backdrop click is intentionally disabled to force user choice
   }
 
   function promptToSavePatch() {
