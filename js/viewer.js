@@ -1065,13 +1065,9 @@ const Viewer = (() => {
   function handleSavePatch() {
     if (!currentPatch) return;
     
-    // If already saved, offer to save as new
+    // Don't allow saving if already saved
     if (currentSavedPatchId) {
-      const result = confirm('This patch is already saved. Save as a new copy?');
-      if (!result) return;
-      
-      // Clear the ID to save as new
-      currentSavedPatchId = null;
+      return;
     }
     
     savePatchToStorage();
@@ -1153,16 +1149,17 @@ const Viewer = (() => {
 
   function updateSaveButtonState() {
     const saveBtn = document.getElementById('save-patch-btn');
-    if (!saveBtn) return;
+    const saveBtnFilled = document.getElementById('save-patch-filled-btn');
+    if (!saveBtn || !saveBtnFilled) return;
     
     if (currentSavedPatchId) {
-      // Patch is already saved
-      saveBtn.title = 'Save as new copy';
-      saveBtn.classList.add('saved');
+      // Patch is already saved - show filled icon
+      saveBtn.classList.add('hidden');
+      saveBtnFilled.classList.remove('hidden');
     } else {
-      // Patch is not saved
-      saveBtn.title = 'Save this patch';
-      saveBtn.classList.remove('saved');
+      // Patch is not saved - show outline icon
+      saveBtn.classList.remove('hidden');
+      saveBtnFilled.classList.add('hidden');
     }
   }
 
