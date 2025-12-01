@@ -1185,6 +1185,22 @@ kbd {
   transform: translateY(-2px);
 }
 
+.saved-patch-card.current-patch {
+  border-color: var(--accent-primary);
+  background-color: var(--accent-subtle);
+}
+
+.saved-patch-card.current-patch .saved-patch-name {
+  color: var(--accent-primary);
+  font-weight: 700;
+}
+
+.saved-patch-card .current-indicator {
+  color: var(--accent-primary);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
 .saved-patch-name {
   font-weight: 600;
   margin-bottom: 0.5rem;

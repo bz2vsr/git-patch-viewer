@@ -1009,15 +1009,20 @@ const Viewer = (() => {
 
     let html = '';
     patches.forEach(patch => {
+      const isCurrentPatch = currentSavedPatchId === patch.id;
+      const currentClass = isCurrentPatch ? ' current-patch' : '';
+      
       html += `
-        <div class="saved-patch-card" data-patch-id="${patch.id}">
-          <div class="saved-patch-name">${escapeHtml(patch.name)}</div>
+        <div class="saved-patch-card${currentClass}" data-patch-id="${patch.id}">
+          <div class="saved-patch-name">
+            ${isCurrentPatch ? '<span class="current-indicator">●</span> ' : ''}${escapeHtml(patch.name)}
+          </div>
           <div class="saved-patch-meta">${StorageManager.formatPatchDate(patch.date)}</div>
           <div class="saved-patch-stats">
             ${patch.stats.filesChanged} files • +${patch.stats.additions} -${patch.stats.deletions}
           </div>
           <div class="saved-patch-actions">
-            <button class="btn-ghost load-patch-btn">Load</button>
+            <button class="btn-ghost load-patch-btn">${isCurrentPatch ? 'Viewing' : 'Load'}</button>
             <button class="btn-ghost delete-patch-btn">Delete</button>
           </div>
         </div>
