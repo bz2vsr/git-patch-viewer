@@ -626,12 +626,40 @@ kbd {
    METADATA CARD
    ============================================ */
 .metadata-card {
-  margin: 1.5rem 2rem 0;
-  padding: 1.5rem;
+  margin: 1rem 1.5rem 1rem;
+  padding: 1.25rem;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   flex-shrink: 0;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.metadata-card.collapsed {
+  display: none;
+}
+
+/* Hide button positioned in bottom right of metadata card */
+.metadata-hide-btn {
+  position: absolute;
+  bottom: 0.75rem;
+  right: 0.75rem;
+  padding: 0.375rem 0.75rem;
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.metadata-hide-btn:hover {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
 }
 
 .metadata-header {

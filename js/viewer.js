@@ -15,6 +15,7 @@ const Viewer = (() => {
   let filesSearchQuery = ''; // Current search query
   let sidebarCollapsed = false; // Track sidebar collapsed state
   let isFullscreenMode = false; // Track fullscreen mode state
+  let isMetadataCollapsed = false; // Track metadata collapsed state
 
   /**
    * Initialize the viewer
@@ -49,6 +50,12 @@ const Viewer = (() => {
     if (savedSidebarState === 'true') {
       sidebarCollapsed = true;
       applySidebarCollapsedState();
+    }
+
+    // Load saved metadata collapsed state
+    const savedMetadataState = localStorage.getItem('git-patch-viewer-metadata-collapsed');
+    if (savedMetadataState === 'true') {
+      isMetadataCollapsed = true;
     }
 
     // Set up event listeners
@@ -218,6 +225,8 @@ const Viewer = (() => {
 
     // Fullscreen button
     document.getElementById('fullscreen-btn')?.addEventListener('click', toggleFullscreenMode);
+
+    // Note: Metadata toggle button is created dynamically and has inline onclick handler
   }
 
   /**
@@ -583,6 +592,16 @@ const Viewer = (() => {
     html += '</div></div></div>';
 
     metadataCard.innerHTML = html;
+
+    // Add hide button and restore collapsed state
+    setTimeout(() => {
+      if (isMetadataCollapsed) {
+        metadataCard.classList.add('collapsed');
+        moveMetadataButtonToUtilityBar();
+      } else {
+        moveMetadataButtonToCard();
+      }
+    }, 0);
   }
 
   function renderStatistics(stats) {
@@ -1718,6 +1737,76 @@ const Viewer = (() => {
         btnIcon.innerHTML = '<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>';
       }
     }
+  }
+
+  // ============================================
+  // Metadata Toggle
+  // ============================================
+
+  function toggleMetadata() {
+    isMetadataCollapsed = !isMetadataCollapsed;
+    
+    const metadataCard = document.getElementById('metadata-card');
+    
+    if (isMetadataCollapsed) {
+      // Collapse metadata
+      metadataCard?.classList.add('collapsed');
+      
+      // Move button to utility bar
+      moveMetadataButtonToUtilityBar();
+    } else {
+      // Expand metadata
+      metadataCard?.classList.remove('collapsed');
+      
+      // Move button back to metadata card
+      moveMetadataButtonToCard();
+    }
+    
+    // Save preference
+    localStorage.setItem('git-patch-viewer-metadata-collapsed', isMetadataCollapsed);
+  }
+
+  function moveMetadataButtonToUtilityBar() {
+    // Remove any existing button
+    const existingBtn = document.getElementById('toggle-metadata-btn');
+    if (existingBtn) {
+      existingBtn.remove();
+    }
+
+    // Create button for diff-actions section
+    const diffActions = document.querySelector('.diff-actions');
+    if (!diffActions) return;
+
+    const button = document.createElement('button');
+    button.id = 'toggle-metadata-btn';
+    button.className = 'btn-ghost';
+    button.title = 'Show commit metadata';
+    button.textContent = 'Show Metadata';
+    button.onclick = toggleMetadata;
+    
+    // Insert before the first child (Expand All button)
+    diffActions.insertBefore(button, diffActions.firstChild);
+  }
+
+  function moveMetadataButtonToCard() {
+    // Remove button from utility bar
+    const container = document.getElementById('metadata-toggle-container');
+    if (container) {
+      container.remove();
+    }
+
+    // Add button to metadata card
+    const metadataCard = document.getElementById('metadata-card');
+    if (!metadataCard) return;
+
+    const button = document.createElement('button');
+    button.id = 'toggle-metadata-btn';
+    button.className = 'metadata-hide-btn';
+    button.title = 'Hide commit metadata';
+    button.textContent = 'Hide';
+    button.onclick = toggleMetadata;
+    
+    metadataCard.appendChild(button);
   }
 
   // Public API
