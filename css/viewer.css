@@ -203,6 +203,10 @@ kbd {
   display: block;
 }
 
+#new-patch-btn svg {
+  margin-top: 2px;
+}
+
 .btn-ghost:hover {
   background-color: var(--bg-tertiary);
   color: var(--text-primary);
