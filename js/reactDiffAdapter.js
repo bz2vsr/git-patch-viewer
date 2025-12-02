@@ -1,0 +1,355 @@
+/**
+ * React Diff Viewer Adapter
+ * Provides a vanilla JS interface to use react-diff-viewer component
+ */
+
+window.ReactDiffAdapter = (() => {
+  // Track mounted React instances for cleanup
+  let currentRoot = null;
+
+  /**
+   * Extract old and new file content from patch hunks
+   * @param {Object} file - Parsed file object with hunks
+   * @returns {Object} { oldContent, newContent }
+   */
+  function extractFileContent(file) {
+    if (!file || !file.hunks || file.hunks.length === 0) {
+      return { oldContent: '', newContent: '' };
+    }
+
+    const oldLines = [];
+    const newLines = [];
+
+    file.hunks.forEach(hunk => {
+      hunk.lines.forEach(line => {
+        if (line.type === 'context') {
+          // Context lines appear in both old and new
+          oldLines.push(line.content);
+          newLines.push(line.content);
+        } else if (line.type === 'del') {
+          // Deletion lines only in old
+          oldLines.push(line.content);
+        } else if (line.type === 'add') {
+          // Addition lines only in new
+          newLines.push(line.content);
+        }
+      });
+    });
+
+    return {
+      oldContent: oldLines.join('\n'),
+      newContent: newLines.join('\n')
+    };
+  }
+
+  /**
+   * Get theme styles for react-diff-viewer based on current theme
+   * @param {boolean} isDarkMode - Whether dark mode is active
+   * @returns {Object} Styles object for react-diff-viewer
+   */
+  function getThemeStyles(isDarkMode) {
+    // Get CSS custom properties
+    const rootStyles = getComputedStyle(document.documentElement);
+    
+    // Helper to get CSS variable value
+    const getCSSVar = (varName) => {
+      return rootStyles.getPropertyValue(varName).trim();
+    };
+
+    // Map theme colors to react-diff-viewer style variables
+    const addedBg = getCSSVar('--diff-added-bg') || (isDarkMode ? '#044B53' : '#e6ffed');
+    const removedBg = getCSSVar('--diff-removed-bg') || (isDarkMode ? '#632F34' : '#ffeef0');
+    const addedWordBg = getCSSVar('--diff-added-word-bg') || (isDarkMode ? '#055d67' : '#acf2bd');
+    const removedWordBg = getCSSVar('--diff-removed-word-bg') || (isDarkMode ? '#7d383f' : '#fdb8c0');
+    const bgColor = getCSSVar('--bg-primary') || (isDarkMode ? '#2e303c' : '#fff');
+    const textColor = getCSSVar('--text-primary') || (isDarkMode ? '#FFF' : '#212529');
+
+    const styles = {
+      variables: {
+        light: {
+          diffViewerBackground: bgColor,
+          diffViewerColor: textColor,
+          addedBackground: addedBg,
+          addedColor: textColor,
+          removedBackground: removedBg,
+          removedColor: textColor,
+          wordAddedBackground: addedWordBg,
+          wordRemovedBackground: removedWordBg,
+          addedGutterBackground: addedBg,
+          removedGutterBackground: removedBg,
+          gutterBackground: isDarkMode ? '#2c2f3a' : '#f7f7f7',
+          gutterBackgroundDark: isDarkMode ? '#262933' : '#f3f1f1',
+          gutterColor: textColor,
+          addedGutterColor: textColor,
+          removedGutterColor: textColor,
+        },
+        dark: {
+          diffViewerBackground: bgColor,
+          diffViewerColor: textColor,
+          addedBackground: addedBg,
+          addedColor: textColor,
+          removedBackground: removedBg,
+          removedColor: textColor,
+          wordAddedBackground: addedWordBg,
+          wordRemovedBackground: removedWordBg,
+          addedGutterBackground: addedBg,
+          removedGutterBackground: removedBg,
+          gutterBackground: '#2c2f3a',
+          gutterBackgroundDark: '#262933',
+          gutterColor: '#464c67',
+          addedGutterColor: '#8c8c8c',
+          removedGutterColor: '#8c8c8c',
+        }
+      },
+      diffContainer: {
+        fontSize: '14px',
+        fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace'
+      }
+    };
+
+    return styles;
+  }
+
+  /**
+   * Syntax highlighting function using Prism
+   * @param {string} code - Code to highlight
+   * @param {string} language - Language for highlighting
+   * @returns {React.Element} Highlighted code element
+   */
+  function highlightSyntax(code, language) {
+    // Return plain code if Prism not available
+    if (!window.Prism) {
+      return React.createElement('span', { 
+        style: { display: 'inline' } 
+      }, code);
+    }
+
+    // Check if language grammar exists
+    const prismLanguage = Prism.languages[language];
+    if (!prismLanguage) {
+      // No grammar for this language, return plain code
+      return React.createElement('span', { 
+        style: { display: 'inline' } 
+      }, code);
+    }
+
+    let highlightedCode;
+    try {
+      highlightedCode = Prism.highlight(code, prismLanguage, language);
+    } catch (e) {
+      // If highlighting fails, return plain code
+      console.warn('Prism highlighting failed for language:', language, e.message);
+      return React.createElement('span', { 
+        style: { display: 'inline' } 
+      }, code);
+    }
+
+    return React.createElement('span', {
+      style: { display: 'inline' },
+      dangerouslySetInnerHTML: { __html: highlightedCode }
+    });
+  }
+
+  /**
+   * Render a file diff using react-diff-viewer
+   * @param {HTMLElement} container - DOM element to render into
+   * @param {Object} file - Parsed file object from PatchParser
+   * @param {Object} options - Rendering options
+   * @param {boolean} options.splitView - Whether to use side-by-side view
+   * @param {boolean} options.isDarkMode - Whether dark mode is active
+   * @param {string} options.language - Programming language for syntax highlighting
+   */
+  function render(container, file, options = {}) {
+    if (!container) {
+      console.error('ReactDiffAdapter: No container provided');
+      return;
+    }
+
+    if (!window.React || !window.ReactDOM) {
+      console.error('ReactDiffAdapter: React or ReactDOM not loaded');
+      return;
+    }
+
+    if (!window.ReactDiffViewer) {
+      console.error('ReactDiffAdapter: react-diff-viewer not loaded');
+      return;
+    }
+
+    // Cleanup previous render
+    unmount();
+
+    const {
+      splitView = true,
+      isDarkMode = false,
+      language = 'plaintext'
+    } = options;
+
+    // Extract file content
+    const { oldContent, newContent } = extractFileContent(file);
+
+    // Get theme styles
+    const styles = getThemeStyles(isDarkMode);
+
+    // Create syntax highlighting function bound to the language
+    const renderContent = (code) => highlightSyntax(code, language);
+
+    // Get the component - it's exported as .default from the ES module
+    const DiffViewerComponent = window.ReactDiffViewer.default;
+    
+    if (!DiffViewerComponent) {
+      console.error('ReactDiffViewer.default is not available');
+      container.innerHTML = `
+        <div style="padding: 20px; text-align: center; color: var(--text-secondary);">
+          <p>React Diff Viewer component not found</p>
+          <p style="font-size: 12px; margin-top: 10px;">Please refresh the page.</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Build react-diff-viewer component using React.createElement
+    const diffViewerElement = React.createElement(DiffViewerComponent, {
+      oldValue: oldContent,
+      newValue: newContent,
+      splitView: splitView,
+      useDarkTheme: isDarkMode,
+      styles: styles,
+      compareMethod: 'diffLines',
+      showDiffOnly: false,
+      renderContent: renderContent,
+      leftTitle: file.oldPath || 'Original',
+      rightTitle: file.newPath || 'Modified'
+    });
+
+    // Render using React 18 API
+    try {
+      if (window.ReactDOM.createRoot) {
+        // React 18+ API
+        currentRoot = ReactDOM.createRoot(container);
+        currentRoot.render(diffViewerElement);
+      } else {
+        // React 17 fallback
+        ReactDOM.render(diffViewerElement, container);
+      }
+    } catch (error) {
+      console.error('ReactDiffAdapter: Failed to render:', error);
+      
+      // Fallback: show error message
+      container.innerHTML = `
+        <div style="padding: 20px; text-align: center; color: var(--text-secondary);">
+          <p>Failed to load React Diff Viewer</p>
+          <p style="font-size: 12px; margin-top: 10px;">Error: ${error.message}</p>
+          <p style="font-size: 12px; margin-top: 10px;">Please try switching to Classic viewer or refresh the page.</p>
+        </div>
+      `;
+    }
+  }
+
+  /**
+   * Show placeholder message when no file is selected
+   * @param {HTMLElement} container - DOM element to render into
+   */
+  function renderPlaceholder(container) {
+    if (!container) return;
+
+    unmount();
+
+    container.innerHTML = `
+      <div style="
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 400px;
+        padding: 40px;
+        text-align: center;
+        color: var(--text-secondary);
+      ">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity: 0.5; margin-bottom: 20px;">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+        </svg>
+        <h3 style="margin: 0 0 10px 0; font-size: 18px; font-weight: 500;">Select a file to view its diff</h3>
+        <p style="margin: 0; font-size: 14px; opacity: 0.8;">Click on a file in the sidebar to see its changes</p>
+      </div>
+    `;
+  }
+
+  /**
+   * Unmount the current React component
+   */
+  function unmount() {
+    if (currentRoot) {
+      try {
+        if (currentRoot.unmount) {
+          // React 18+ API
+          currentRoot.unmount();
+        } else {
+          // React 17 fallback - container is stored differently
+          // This path shouldn't normally be hit with React 18
+        }
+      } catch (e) {
+        console.warn('Failed to unmount React component:', e);
+      }
+      currentRoot = null;
+    }
+  }
+
+  /**
+   * Check if react-diff-viewer is loaded and available
+   * @returns {boolean} True if available
+   */
+  function isAvailable() {
+    console.log('🔍 isAvailable() called');
+    const hasReact = !!(window.React && window.ReactDOM);
+    
+    // Check if ReactDiffViewer exists and is properly loaded
+    let hasReactDiffViewer = false;
+    if (window.ReactDiffViewer) {
+      // It's a module with .default export
+      try {
+        // Try to access the default export
+        const defaultExport = window.ReactDiffViewer.default;
+        hasReactDiffViewer = !!(defaultExport && typeof defaultExport === 'function');
+        if (!hasReactDiffViewer) {
+          console.warn('ReactDiffViewer.default is not a function:', typeof defaultExport, defaultExport);
+        }
+      } catch (e) {
+        console.warn('Error accessing ReactDiffViewer.default:', e);
+      }
+    }
+    
+    if (!hasReact) {
+      console.warn('React or ReactDOM not loaded');
+    }
+    if (!hasReactDiffViewer) {
+      console.warn('ReactDiffViewer check failed:', {
+        hasReact,
+        hasWindow: !!window.ReactDiffViewer,
+        reactDiffViewerKeys: window.ReactDiffViewer ? Object.keys(window.ReactDiffViewer) : [],
+        defaultExists: window.ReactDiffViewer ? !!window.ReactDiffViewer.default : false
+      });
+    }
+    
+    return hasReact && hasReactDiffViewer;
+  }
+
+  // Public API
+  return {
+    render,
+    renderPlaceholder,
+    unmount,
+    isAvailable,
+    extractFileContent
+  };
+})();
+
+// Debug: Verify module loaded
+if (window.ReactDiffAdapter) {
+  console.log('✅ ReactDiffAdapter module loaded successfully');
+} else {
+  console.error('❌ ReactDiffAdapter failed to load');
+}
+

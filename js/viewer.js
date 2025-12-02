@@ -7,6 +7,8 @@ const Viewer = (() => {
   // State
   let currentPatch = null;
   let currentView = 'side-by-side'; // 'unified' or 'side-by-side'
+  let currentViewerType = 'modern'; // 'modern' (react-diff-viewer) or 'classic' (diff2html)
+  let currentSelectedFile = null; // Currently selected file for react viewer
   let currentSavedPatchId = null; // Track if current patch is saved
   let filesViewMode = 'flat'; // 'flat' or 'tree'
   let folderStates = {}; // Track expanded/collapsed folders
@@ -23,6 +25,12 @@ const Viewer = (() => {
     const savedView = localStorage.getItem('git-patch-viewer-view');
     if (savedView) {
       currentView = savedView;
+    }
+
+    // Load saved viewer type preference (default to 'modern')
+    const savedViewerType = localStorage.getItem('git-patch-viewer-viewer-type');
+    if (savedViewerType) {
+      currentViewerType = savedViewerType;
     }
 
     // Load saved files view mode
@@ -47,6 +55,16 @@ const Viewer = (() => {
     setupViewerListeners();
     setupModalListeners();
     setupKeyboardShortcuts();
+
+    // Register theme change callback for React viewer
+    if (typeof ThemeManager !== 'undefined' && ThemeManager.onThemeChange) {
+      ThemeManager.onThemeChange(() => {
+        // Re-render if using React viewer and a file is selected
+        if (currentViewerType === 'modern' && currentSelectedFile) {
+          renderWithReactDiffViewer();
+        }
+      });
+    }
 
     // Handle URL parameters
     const urlStatus = URLHandler.handleURLOnLoad();
@@ -116,6 +134,17 @@ const Viewer = (() => {
    * Set up viewer section event listeners
    */
   function setupViewerListeners() {
+    // Viewer type toggle buttons
+    const modernViewerBtn = document.getElementById('modern-viewer-btn');
+    const classicViewerBtn = document.getElementById('classic-viewer-btn');
+
+    if (modernViewerBtn) {
+      modernViewerBtn.addEventListener('click', () => setViewerType('modern'));
+    }
+    if (classicViewerBtn) {
+      classicViewerBtn.addEventListener('click', () => setViewerType('classic'));
+    }
+
     // View toggle buttons
     const unifiedBtn = document.getElementById('unified-btn');
     const sideBySideBtn = document.getElementById('sidebyside-btn');
@@ -383,6 +412,7 @@ const Viewer = (() => {
 
       // Continue with normal rendering
       currentPatch = parsedPatch;
+      currentSelectedFile = null; // Reset selected file for React viewer
 
       // Show viewer section
       showViewerSection();
@@ -558,6 +588,18 @@ const Viewer = (() => {
     const diffContainer = document.getElementById('diff-container');
     if (!diffContainer) return;
 
+    // Route to appropriate renderer based on viewer type
+    if (currentViewerType === 'modern') {
+      renderWithReactDiffViewer();
+    } else {
+      renderWithDiff2Html(patchText);
+    }
+  }
+
+  function renderWithDiff2Html(patchText) {
+    const diffContainer = document.getElementById('diff-container');
+    if (!diffContainer) return;
+
     try {
       // Get current mode from ThemeManager
       const currentMode = typeof ThemeManager !== 'undefined' 
@@ -585,6 +627,60 @@ const Viewer = (() => {
       console.error('Diff render error:', error);
       // Fallback to raw text
       diffContainer.innerHTML = `<pre style="padding: 1rem; overflow: auto;">${escapeHtml(patchText)}</pre>`;
+    }
+  }
+
+  function renderWithReactDiffViewer() {
+    const diffContainer = document.getElementById('diff-container');
+    if (!diffContainer) return;
+
+    // Check if ReactDiffAdapter is available
+    console.log('🔍 Checking ReactDiffAdapter:', {
+      exists: !!window.ReactDiffAdapter,
+      isAvailable: window.ReactDiffAdapter ? window.ReactDiffAdapter.isAvailable() : 'N/A'
+    });
+    if (!window.ReactDiffAdapter || !window.ReactDiffAdapter.isAvailable()) {
+      // Check if React viewer is still loading
+      if (window.reactDiffViewerLoading) {
+        diffContainer.innerHTML = `
+          <div style="padding: 20px; text-align: center; color: var(--text-secondary);">
+            <p>Loading Modern Viewer...</p>
+            <p style="font-size: 12px; margin-top: 10px;">Please wait a moment...</p>
+          </div>
+        `;
+        // Wait for it to load and try again
+        window.addEventListener('reactDiffViewerLoaded', () => {
+          renderWithReactDiffViewer();
+        }, { once: true });
+        return;
+      }
+      
+      console.error('ReactDiffAdapter not available');
+      diffContainer.innerHTML = `
+        <div style="padding: 20px; text-align: center; color: var(--text-secondary);">
+          <p>React Diff Viewer is not available</p>
+          <p style="font-size: 12px; margin-top: 10px;">Please switch to Classic viewer or refresh the page.</p>
+        </div>
+      `;
+      return;
+    }
+
+    // If no file is selected, show placeholder
+    if (!currentSelectedFile && currentPatch && currentPatch.files) {
+      window.ReactDiffAdapter.renderPlaceholder(diffContainer);
+      return;
+    }
+
+    // Render the selected file
+    if (currentSelectedFile) {
+      const isDarkMode = ThemeManager.getCurrentMode() === 'dark';
+      const language = PatchParser.detectLanguage(currentSelectedFile.newPath || currentSelectedFile.oldPath);
+      
+      window.ReactDiffAdapter.render(diffContainer, currentSelectedFile, {
+        splitView: currentView === 'side-by-side',
+        isDarkMode: isDarkMode,
+        language: language
+      });
     }
   }
 
@@ -850,15 +946,37 @@ const Viewer = (() => {
   // ============================================
 
   function navigateToFile(filePath) {
-    const fileHeaders = document.querySelectorAll('.d2h-file-header');
-    
-    for (const header of fileHeaders) {
-      const fileNameSpan = header.querySelector('.d2h-file-name');
-      if (fileNameSpan && fileNameSpan.textContent.includes(filePath)) {
-        header.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        header.classList.add('highlight');
-        setTimeout(() => header.classList.remove('highlight'), 1000);
-        break;
+    // Update active state in sidebar
+    document.querySelectorAll('.file-tree-item').forEach(item => {
+      item.classList.toggle('active', item.dataset.file === filePath);
+    });
+
+    // Different behavior based on viewer type
+    if (currentViewerType === 'modern') {
+      // For modern viewer, find and render the specific file
+      if (currentPatch && currentPatch.files) {
+        const file = currentPatch.files.find(f => {
+          const path = f.newPath !== '/dev/null' ? f.newPath : f.oldPath;
+          return path === filePath;
+        });
+        
+        if (file) {
+          currentSelectedFile = file;
+          renderWithReactDiffViewer();
+        }
+      }
+    } else {
+      // For classic viewer, scroll to the file header
+      const fileHeaders = document.querySelectorAll('.d2h-file-header');
+      
+      for (const header of fileHeaders) {
+        const fileNameSpan = header.querySelector('.d2h-file-name');
+        if (fileNameSpan && fileNameSpan.textContent.includes(filePath)) {
+          header.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          header.classList.add('highlight');
+          setTimeout(() => header.classList.remove('highlight'), 1000);
+          break;
+        }
       }
     }
   }
@@ -903,6 +1021,7 @@ const Viewer = (() => {
     URLHandler.clearURL();
     currentPatch = null;
     currentSavedPatchId = null;
+    currentSelectedFile = null;
   }
 
   function showViewerSection() {
@@ -911,6 +1030,14 @@ const Viewer = (() => {
     document.getElementById('new-patch-btn')?.classList.remove('hidden');
     document.getElementById('save-patch-btn')?.classList.remove('hidden');
     document.getElementById('share-btn')?.classList.remove('hidden');
+
+    // Update viewer type button states
+    document.getElementById('modern-viewer-btn')?.classList.toggle('active', currentViewerType === 'modern');
+    document.getElementById('classic-viewer-btn')?.classList.toggle('active', currentViewerType === 'classic');
+
+    // Update view button states
+    document.getElementById('unified-btn')?.classList.toggle('active', currentView === 'unified');
+    document.getElementById('sidebyside-btn')?.classList.toggle('active', currentView === 'side-by-side');
     document.body?.classList.add('viewer-mode');
   }
 
@@ -921,6 +1048,20 @@ const Viewer = (() => {
     // Update button states
     document.getElementById('unified-btn')?.classList.toggle('active', view === 'unified');
     document.getElementById('sidebyside-btn')?.classList.toggle('active', view === 'side-by-side');
+
+    // Re-render diff if patch loaded
+    if (currentPatch) {
+      renderDiff(currentPatch.raw);
+    }
+  }
+
+  function setViewerType(viewerType) {
+    currentViewerType = viewerType;
+    localStorage.setItem('git-patch-viewer-viewer-type', viewerType);
+
+    // Update button states
+    document.getElementById('modern-viewer-btn')?.classList.toggle('active', viewerType === 'modern');
+    document.getElementById('classic-viewer-btn')?.classList.toggle('active', viewerType === 'classic');
 
     // Re-render diff if patch loaded
     if (currentPatch) {

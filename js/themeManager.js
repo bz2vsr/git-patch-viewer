@@ -40,6 +40,7 @@ const ThemeManager = (() => {
 
   let currentTheme = DEFAULT_THEME;
   let currentMode = DEFAULT_MODE;
+  let themeChangeCallbacks = [];
 
   /**
    * Initialize theme manager
@@ -100,6 +101,25 @@ const ThemeManager = (() => {
     // Update UI
     updateThemeButton();
     updateModeButton();
+
+    // Notify theme change callbacks
+    themeChangeCallbacks.forEach(callback => {
+      try {
+        callback(currentTheme, currentMode);
+      } catch (error) {
+        console.error('Theme change callback error:', error);
+      }
+    });
+  }
+
+  /**
+   * Register a callback to be called when theme or mode changes
+   * @param {Function} callback - Function to call on theme change
+   */
+  function onThemeChange(callback) {
+    if (typeof callback === 'function') {
+      themeChangeCallbacks.push(callback);
+    }
   }
 
   /**
@@ -357,6 +377,7 @@ const ThemeManager = (() => {
     getCurrentMode,
     getThemes,
     setThemeFromURL,
+    onThemeChange,
   };
 })();
 
