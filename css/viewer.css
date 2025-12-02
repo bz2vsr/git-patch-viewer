@@ -1978,19 +1978,4 @@ body.fullscreen-active .app-main {
   outline-offset: 2px;
 }
 
-/* Skip to content link for screen readers */
-.skip-to-content {
-  position: absolute;
-  top: -40px;
-  left: 0;
-  background: var(--accent-primary);
-  color: var(--bg-primary);
-  padding: 8px;
-  text-decoration: none;
-  z-index: 10000;
-}
-
-.skip-to-content:focus {
-  top: 0;
-}
 

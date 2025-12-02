@@ -1262,6 +1262,7 @@ const Viewer = (() => {
           StorageManager.deletePatch(card.dataset.patchId);
           renderSavedPatches();
           updateSavedPatchesCount();
+          displayRecentPatches(); // Update homepage recent patches list
           showToast('Patch deleted', 'info');
         }
       });
@@ -1357,45 +1358,42 @@ const Viewer = (() => {
   }
 
   function promptToSavePatch() {
-    // Show a toast with action button to save
-    const container = document.getElementById('toast-container');
-    if (!container) return;
+    // Show modal with options to save or don't save
+    const modal = document.getElementById('save-prompt-modal');
+    if (!modal) return;
 
-    const toast = document.createElement('div');
-    toast.className = 'toast info save-prompt';
-    
-    toast.innerHTML = `
-      <svg class="toast-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-      </svg>
-      <div class="toast-message">Would you like to save this patch?</div>
-      <button class="toast-action-btn">Save</button>
-      <button class="toast-close">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </button>
-    `;
+    modal.classList.remove('hidden');
 
-    container.appendChild(toast);
+    // Save button
+    const saveBtn = document.getElementById('save-patch-confirm-btn');
+    const skipBtn = document.getElementById('save-patch-skip-btn');
+    const closeBtn = document.getElementById('save-prompt-close-btn');
 
-    // Save button action
-    toast.querySelector('.toast-action-btn').addEventListener('click', () => {
+    // Handler for saving
+    const handleSave = () => {
       savePatchToStorage();
-      toast.remove();
-    });
+      modal.classList.add('hidden');
+      // Remove event listeners
+      saveBtn.removeEventListener('click', handleSave);
+      skipBtn.removeEventListener('click', handleSkip);
+      closeBtn.removeEventListener('click', handleSkip);
+    };
 
-    // Close button
-    toast.querySelector('.toast-close').addEventListener('click', () => {
-      toast.remove();
-    });
+    // Handler for skipping/closing
+    const handleSkip = () => {
+      modal.classList.add('hidden');
+      // Remove event listeners
+      saveBtn.removeEventListener('click', handleSave);
+      skipBtn.removeEventListener('click', handleSkip);
+      closeBtn.removeEventListener('click', handleSkip);
+    };
 
-    // Auto-dismiss after 10 seconds
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      setTimeout(() => toast.remove(), 300);
-    }, 10000);
+    // Add event listeners
+    saveBtn.addEventListener('click', handleSave);
+    skipBtn.addEventListener('click', handleSkip);
+    closeBtn.addEventListener('click', handleSkip);
+
+    // Note: Backdrop click is intentionally not handled to force user choice
   }
 
   function updateSaveButtonState() {
