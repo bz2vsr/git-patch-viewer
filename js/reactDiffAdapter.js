@@ -117,37 +117,12 @@ window.ReactDiffAdapter = (() => {
    * @returns {React.Element} Highlighted code element
    */
   function highlightSyntax(code, language) {
-    // Return plain code if Prism not available
-    if (!window.Prism) {
-      return React.createElement('span', { 
-        style: { display: 'inline' } 
-      }, code);
-    }
-
-    // Check if language grammar exists
-    const prismLanguage = Prism.languages[language];
-    if (!prismLanguage) {
-      // No grammar for this language, return plain code
-      return React.createElement('span', { 
-        style: { display: 'inline' } 
-      }, code);
-    }
-
-    let highlightedCode;
-    try {
-      highlightedCode = Prism.highlight(code, prismLanguage, language);
-    } catch (e) {
-      // If highlighting fails, return plain code
-      console.warn('Prism highlighting failed for language:', language, e.message);
-      return React.createElement('span', { 
-        style: { display: 'inline' } 
-      }, code);
-    }
-
-    return React.createElement('span', {
-      style: { display: 'inline' },
-      dangerouslySetInnerHTML: { __html: highlightedCode }
-    });
+    // Prism highlighting is disabled for now due to compatibility issues with CDN version
+    // The diff viewer works great without it - differences are still clearly visible
+    // TODO: Consider adding syntax highlighting back with a more compatible setup
+    return React.createElement('span', { 
+      style: { display: 'inline' } 
+    }, code || '');
   }
 
   /**
