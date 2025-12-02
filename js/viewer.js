@@ -1056,6 +1056,10 @@ const Viewer = (() => {
   }
 
   function setViewerType(viewerType) {
+    // Remember which file was selected before switching
+    const activeFileItem = document.querySelector('.file-tree-item.active');
+    const selectedFilePath = activeFileItem?.dataset?.file;
+
     currentViewerType = viewerType;
     localStorage.setItem('git-patch-viewer-viewer-type', viewerType);
 
@@ -1066,6 +1070,14 @@ const Viewer = (() => {
     // Re-render diff if patch loaded
     if (currentPatch) {
       renderDiff(currentPatch.raw);
+      
+      // Restore the selected file after switching viewers
+      if (selectedFilePath) {
+        // Use setTimeout to ensure the new viewer has fully rendered
+        setTimeout(() => {
+          navigateToFile(selectedFilePath);
+        }, 100);
+      }
     }
   }
 
