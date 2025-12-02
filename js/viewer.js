@@ -189,14 +189,11 @@ const Viewer = (() => {
     document.getElementById('copy-all-btn')?.addEventListener('click', handleCopyAll);
 
     // Saved patches button
-    document.getElementById('saved-btn')?.addEventListener('click', toggleSavedSidebar);
+    document.getElementById('saved-btn')?.addEventListener('click', handleSavedButtonClick);
     document.getElementById('close-saved-btn')?.addEventListener('click', closeSavedSidebar);
 
     // Close saved sidebar when clicking outside
     document.addEventListener('click', handleClickOutsideSavedSidebar);
-
-    // Save patch button
-    document.getElementById('save-patch-btn')?.addEventListener('click', handleSavePatch);
     
     // Share button
     document.getElementById('share-btn')?.addEventListener('click', openShareModal);
@@ -1052,7 +1049,6 @@ const Viewer = (() => {
     document.getElementById('input-section')?.classList.remove('hidden');
     document.getElementById('viewer-section')?.classList.add('hidden');
     document.getElementById('new-patch-btn')?.classList.add('hidden');
-    document.getElementById('save-patch-btn')?.classList.add('hidden');
     document.getElementById('share-btn')?.classList.add('hidden');
     document.body?.classList.remove('viewer-mode');
     document.getElementById('header-stats')?.classList.add('hidden');
@@ -1066,7 +1062,6 @@ const Viewer = (() => {
     document.getElementById('input-section')?.classList.add('hidden');
     document.getElementById('viewer-section')?.classList.remove('hidden');
     document.getElementById('new-patch-btn')?.classList.remove('hidden');
-    document.getElementById('save-patch-btn')?.classList.remove('hidden');
     document.getElementById('share-btn')?.classList.remove('hidden');
 
     // Update viewer type button states
@@ -1179,6 +1174,19 @@ const Viewer = (() => {
     });
   }
 
+  function handleSavedButtonClick(e) {
+    if (e) e.stopPropagation(); // Prevent event from bubbling to document
+    
+    // Check if we have a current patch and if it's saved
+    if (currentPatch && !currentSavedPatchId) {
+      // Unsaved patch - show modal with options
+      showSaveOrViewModal();
+    } else {
+      // No patch or patch is saved - open sidebar
+      toggleSavedSidebar(e);
+    }
+  }
+
   function toggleSavedSidebar(e) {
     if (e) e.stopPropagation(); // Prevent event from bubbling to document
     const sidebar = document.getElementById('saved-sidebar');
@@ -1208,6 +1216,59 @@ const Viewer = (() => {
     if (!sidebar.contains(e.target) && !savedBtn?.contains(e.target)) {
       closeSavedSidebar();
     }
+  }
+
+  function showSaveOrViewModal() {
+    const modal = document.getElementById('save-or-view-modal');
+    if (!modal) return;
+
+    const saveBtn = document.getElementById('save-patch-from-modal-btn');
+    const viewBtn = document.getElementById('view-saved-from-modal-btn');
+    const closeBtn = document.getElementById('save-or-view-close-btn');
+
+    if (!saveBtn || !viewBtn || !closeBtn) return;
+
+    // Handler for saving patch
+    const handleSave = () => {
+      savePatchToStorage();
+      modal.classList.add('hidden');
+    };
+
+    // Handler for viewing saved patches
+    const handleView = (e) => {
+      e.stopPropagation(); // Prevent click from bubbling to document
+      modal.classList.add('hidden');
+      // Open the sidebar after a brief delay to avoid click-outside handler
+      setTimeout(() => {
+        const sidebar = document.getElementById('saved-sidebar');
+        if (sidebar) {
+          sidebar.classList.remove('hidden');
+          renderSavedPatches();
+        }
+      }, 50);
+    };
+
+    // Handler for closing modal
+    const handleClose = () => {
+      modal.classList.add('hidden');
+    };
+
+    // Remove any existing listeners and add new ones (using once option)
+    saveBtn.replaceWith(saveBtn.cloneNode(true));
+    viewBtn.replaceWith(viewBtn.cloneNode(true));
+    closeBtn.replaceWith(closeBtn.cloneNode(true));
+
+    // Get the new elements after replacing
+    const newSaveBtn = document.getElementById('save-patch-from-modal-btn');
+    const newViewBtn = document.getElementById('view-saved-from-modal-btn');
+    const newCloseBtn = document.getElementById('save-or-view-close-btn');
+
+    // Add event listeners
+    newSaveBtn.addEventListener('click', handleSave);
+    newViewBtn.addEventListener('click', handleView);
+    newCloseBtn.addEventListener('click', handleClose);
+
+    modal.classList.remove('hidden');
   }
 
   function renderSavedPatches() {
@@ -1259,7 +1320,20 @@ const Viewer = (() => {
         e.stopPropagation();
         const card = btn.closest('.saved-patch-card');
         if (confirm('Delete this patch?')) {
-          StorageManager.deletePatch(card.dataset.patchId);
+          const patchId = card.dataset.patchId;
+          
+          // Check if we're deleting the currently viewed patch
+          if (currentSavedPatchId === patchId) {
+            // Treat as unsaved patch
+            currentSavedPatchId = null;
+            updateSaveButtonState();
+            // Update URL to remove saved patch ID
+            if (currentPatch) {
+              URLHandler.updateURL({ patch: currentPatch.raw });
+            }
+          }
+          
+          StorageManager.deletePatch(patchId);
           renderSavedPatches();
           updateSavedPatchesCount();
           displayRecentPatches(); // Update homepage recent patches list
@@ -1281,17 +1355,6 @@ const Viewer = (() => {
   // ============================================
   // Save Patch Functions
   // ============================================
-
-  function handleSavePatch() {
-    if (!currentPatch) return;
-    
-    // Don't allow saving if already saved
-    if (currentSavedPatchId) {
-      return;
-    }
-    
-    savePatchToStorage();
-  }
 
   function savePatchToStorage() {
     if (!currentPatch) return;
@@ -1397,18 +1460,22 @@ const Viewer = (() => {
   }
 
   function updateSaveButtonState() {
-    const saveBtn = document.getElementById('save-patch-btn');
-    const saveBtnFilled = document.getElementById('save-patch-filled-btn');
-    if (!saveBtn || !saveBtnFilled) return;
+    const savedBtn = document.getElementById('saved-btn');
+    if (!savedBtn) return;
+    
+    const svg = savedBtn.querySelector('svg');
+    if (!svg) return;
     
     if (currentSavedPatchId) {
       // Patch is already saved - show filled icon
-      saveBtn.classList.add('hidden');
-      saveBtnFilled.classList.remove('hidden');
+      savedBtn.classList.add('saved');
+      svg.setAttribute('fill', 'currentColor');
+      savedBtn.setAttribute('title', 'Current patch is saved');
     } else {
       // Patch is not saved - show outline icon
-      saveBtn.classList.remove('hidden');
-      saveBtnFilled.classList.add('hidden');
+      savedBtn.classList.remove('saved');
+      svg.setAttribute('fill', 'none');
+      savedBtn.setAttribute('title', 'View saved patches');
     }
   }
 
