@@ -27,3 +27,7 @@ A client-side git patch and diff viewer with syntax highlighting and theming. Vi
 - **Storage Manager** - localStorage-based patch management
 - **URL Handler** - Compression, encoding, and shareable link generation
 - **Dual Viewer System** - Toggle between Modern and Classic rendering modes
+
+### Generating a Diff File
+Use: `git diff [commit_a] [commit_b] > changes.patch`
+
